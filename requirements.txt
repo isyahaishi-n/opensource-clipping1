@@ -1,7 +1,7 @@
 yt-dlp
 faster-whisper
 google-genai
-numpy<2.0.0
+numpy>=2.0
 mediapipe
 opencv-python
 Pillow
@@ -20,3 +20,6 @@ uvicorn
 python-multipart
 pydantic
 edge-tts
+av>=11,<19
+nvidia-cublas-cu12
+nvidia-cudnn-cu12
