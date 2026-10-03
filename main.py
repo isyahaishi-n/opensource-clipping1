@@ -249,6 +249,18 @@ def main():
             print(f"\n❌ [{idx + 1}/{total}] GAGAL — {error_msg}")
             print(f"   ⏭️ Melanjutkan ke URL berikutnya...")
 
+        # ── Free RAM/VRAM between episodes ───────────────────────────
+        # Bulk runs process many videos in one process; release leftover
+        # CPU/GPU memory before the next episode so usage stays flat.
+        try:
+            import gc
+            gc.collect()
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
     # ── Batch Summary ────────────────────────────────────────────────
     total_elapsed = time.time() - t_batch_start
     success_count = sum(1 for m in all_manifests if m["status"] == "success")
