@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import os
 import re
+import subprocess
 from types import SimpleNamespace
 
 try:
@@ -164,8 +165,35 @@ GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
 # ==============================================================================
 
 
+def _sanitize_slug(text: str, max_len: int = 40) -> str:
+    """Sanitize arbitrary text into a filesystem-safe slug fragment."""
+    text = text.strip().lower()
+    text = re.sub(r"[^\w\s-]", "", text, flags=re.UNICODE)
+    text = re.sub(r"[\s_-]+", "_", text)
+    return text[:max_len].strip("_")
+
+
+def _resolve_youtube_title(url: str, timeout: int = 20) -> str:
+    """Best-effort fetch of a YouTube video title without downloading. Returns '' on any failure."""
+    try:
+        result = subprocess.run(
+            ["yt-dlp", "--print", "title", "--skip-download", "--no-warnings", url],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip().splitlines()[0].strip()
+    except Exception:
+        pass
+    return ""
+
+
 def _make_url_slug(url: str, index: int) -> str:
-    """Generate a short, filesystem-safe slug from a URL for output isolation."""
+    """Generate a short, filesystem-safe slug from a URL for output isolation.
+
+    Prefers a human-readable video title when it can be resolved cheaply
+    (YouTube via yt-dlp), but always keeps the video id / url hash in the
+    slug so two different links can never collide on the same folder.
+    """
     video_id = ""
     if "youtube.com" in url or "youtu.be" in url:
         match = re.search(r'(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})', url)
@@ -180,11 +208,18 @@ def _make_url_slug(url: str, index: int) -> str:
         if match:
             video_id = match.group(1)[:12]
 
+    title_slug = ""
+    if "youtube.com" in url or "youtu.be" in url:
+        title_slug = _sanitize_slug(_resolve_youtube_title(url))
+
+    if title_slug and video_id:
+        return f"video_{index + 1}_{title_slug}_{video_id}"
     if video_id:
         return f"video_{index + 1}_{video_id}"
-    else:
-        short_hash = hashlib.md5(url.encode()).hexdigest()[:8]
-        return f"video_{index + 1}_{short_hash}"
+    short_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+    if title_slug:
+        return f"video_{index + 1}_{title_slug}_{short_hash}"
+    return f"video_{index + 1}_{short_hash}"
 
 
 # ==============================================================================

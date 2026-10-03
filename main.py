@@ -139,14 +139,24 @@ def main():
     url_list = getattr(cfg, "url_list", [cfg.url_youtube] if isinstance(cfg.url_youtube, str) else cfg.url_youtube)
     is_batch = len(url_list) > 1
 
-    # ── Single URL Mode (backward-compatible) ────────────────────────
+    base_outputs_dir = cfg.outputs_dir
+
+    # ── Single URL Mode ──────────────────────────────────────────────
+    # Same per-URL output isolation as batch mode: every link renders into
+    # its own outputs/<slug>/ folder, so re-runs with different links
+    # never overwrite each other's mp4 / json / jpg outputs.
     if not is_batch:
-        _run_single_url(cfg, url_list[0], version)
+        url = url_list[0]
+        slug = _make_url_slug(url, 0)
+        cfg.outputs_dir = os.path.join(base_outputs_dir, slug)
+        os.makedirs(cfg.outputs_dir, exist_ok=True)
+        cfg.file_video_asli = os.path.join(cfg.outputs_dir, "video_asli.mp4")
+        print(f"   Output Dir  : {cfg.outputs_dir}")
+        _run_single_url(cfg, url, version)
         print("\n✅ Selesai! Semua klip telah dirender.")
         return
 
     # ── Batch Multi-URL Mode ─────────────────────────────────────────
-    base_outputs_dir = cfg.outputs_dir
     total = len(url_list)
 
     print("=" * 70)
